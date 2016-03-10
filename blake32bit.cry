@@ -1,0 +1,297 @@
+module blake32bit where
+
+
+type Hash    = [32][8]
+type Salt    = [4][32]
+type Count   = [2][32]
+type Block   = [16][32]
+type Alysida = [8][32]
+
+
+
+private
+ 
+  pad0 = pad (zero : [8]) == (join m, [join l])
+    where
+      m = [ 0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+          , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+          , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+          , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+          , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+          , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+          , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01
+          , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08 ]
+      l = [ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+          , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08 ]
+
+ 
+  compress0 = compress i (split m) zero c == r
+    where
+      r  = [ 0x0ce8d4ef, 0x4dd7cd8d, 0x62dfded9, 0xd4edb0a7
+           , 0x74ae6a41, 0x929a74da, 0x23109e8f, 0x11139c87 ]
+      i  = [ 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a
+           , 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19 ]
+
+      (m,l) = pad (zero : [8])
+      c  = reverse (split (drop`{64} (l @ 0)))
+
+  
+  compress1 = (compression1 == r1) && (compression2 == r2)
+    where
+      r1  = [ 0xb5bfb2f9, 0x14cfcc63, 0xb85c549c, 0xc9b4184e
+            , 0x67dfc6ce, 0x29e9904b, 0xd59ee74e, 0xfaa9c653 ]
+      i1  = [ 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a
+            , 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19 ]
+      c1  = [ 0x00000200, 0x00000000 ]
+
+      compression1 = compress i1 zero zero c1
+
+      r2 = [ 0xd419bad3, 0x2d504fb7, 0xd44d460c, 0x42c5593f
+           , 0xe544fa4c, 0x135dec31, 0xe21bd9ab, 0xdcc22d41 ]
+      m2 = [ 0x00000000, 0x00000000, 0x80000000, 0x00000000
+           , 0x00000000, 0x00000000, 0x00000000, 0x00000000
+           , 0x00000000, 0x00000000, 0x00000000, 0x00000000
+           , 0x00000000, 0x00000001, 0x00000000, 0x00000240 ]
+      c2 = [ 0x00000240, 0x00000000 ]
+
+      compression2 = compress compression1 m2 zero c2
+
+ 
+  
+  hash1 = blake256 zero (zero : [1][8]) == r
+    where
+      r = [ 0x0c, 0xe8, 0xd4, 0xef, 0x4d, 0xd7, 0xcd, 0x8d
+          , 0x62, 0xdf, 0xde, 0xd9, 0xd4, 0xed, 0xb0, 0xa7
+          , 0x74, 0xae, 0x6a, 0x41, 0x92, 0x9a, 0x74, 0xda
+          , 0x23, 0x10, 0x9e, 0x8f, 0x11, 0x13, 0x9c, 0x87
+          ]
+
+property allTestsPass =
+  ([ 
+     pad0, compress0, compress1
+    
+   , hash1
+   ] : [_]Bit) == ~zero 
+
+
+private
+  
+  iv : Alysida
+  iv =
+    [ 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a
+    , 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19
+    ]
+
+  
+  u : [16][32]
+  u =
+    [ 0x243f6a88, 0x85a308d3, 0x13198a2e, 0x03707344
+    , 0xa4093822, 0x299f31d0, 0x082efa98, 0xec4e6c89
+    , 0x452821e6, 0x38d01377, 0xbe5466cf, 0x34e90c6c
+    , 0xc0ac29b7, 0xc97c50dd, 0x3f84d5b5, 0xb5470917
+    ]
+
+  
+  S : [16][16][32]
+  S =
+    [ [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 ]
+    , [ 14, 10, 4, 8, 9, 15, 13, 6, 1, 12, 0, 2, 11, 7, 5, 3 ]
+    , [ 11, 8, 12, 0, 5, 2, 15, 13, 10, 14, 3, 6, 7, 1, 9, 4 ]
+    , [ 7, 9, 3, 1, 13, 12, 11, 14, 2, 6, 5, 10, 4, 0, 15, 8 ]
+    , [ 9, 0, 5, 7, 2, 4, 10, 15, 14, 1, 11, 12, 6, 8, 3, 13 ]
+    , [ 2, 12, 6, 10, 0, 11, 8, 3, 4, 13, 7, 5, 15, 14, 1, 9 ]
+    , [ 12, 5, 1, 15, 14, 13, 4, 10, 0, 7, 6, 3, 9, 2, 8, 11 ]
+    , [ 13, 11, 7, 14, 12, 1, 3, 9, 5, 0, 15, 4, 8, 6, 2, 10 ]
+    , [ 6, 15, 14, 9, 11, 3, 0, 8, 12, 2, 13, 7, 1, 4, 10, 5 ]
+    , [ 10, 2, 8, 4, 7, 6, 1, 5, 15, 11, 9, 14, 3, 12, 13, 0 ]
+    , [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 ]
+    , [ 14, 10, 4, 8, 9, 15, 13, 6, 1, 12, 0, 2, 11, 7, 5, 3 ]
+    , [ 11, 8, 12, 0, 5, 2, 15, 13, 10, 14, 3, 6, 7, 1, 9, 4 ]
+    , [ 7, 9, 3, 1, 13, 12, 11, 14, 2, 6, 5, 10, 4, 0, 15, 8 ]
+    , [ 9, 0, 5, 7, 2, 4, 10, 15, 14, 1, 11, 12, 6, 8, 3, 13 ]
+    , [ 2, 12, 6, 10, 0, 11, 8, 3, 4, 13, 7, 5, 15, 14, 1, 9 ]
+    ]
+
+
+compress : Alysida -> Block -> Salt -> Count -> Alysida
+compress h m s t = result
+  where
+
+    [ u0, u1, u2, u3, u4, u5, u6, u7, u8, u9, u10, u11, u12, u13, u14, u15 ] = u
+    [ m0, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15 ] = m
+    [ h0, h1, h2, h3, h4, h5, h6, h7 ] = h
+    [ s0, s1, s2, s3 ] = s
+    [ t0, t1 ] = t
+
+    
+    [ v0,   v1,  v2,  v3 ] = [ h0, h1, h2, h3 ]
+    [ v4,   v5,  v6,  v7 ] = [ h4, h5, h6, h7 ]
+    [ v8,   v9, v10, v11 ] = [ s0 ^ u0, s1 ^ u1, s2 ^ u2, s3 ^ u3 ]
+    [ v12, v13, v14, v15 ] = [ t0 ^ u4, t0 ^ u5, t1 ^ u6, t1 ^ u7 ]
+    v = [ v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15 ]
+
+
+    G : { i, r }
+        ( fin i,  7 >= i
+        , fin r, 13 >= r) => [4][32] -> [4][32]
+    G [ a0, b0, c0, d0 ] = [ a2, b2, c2, d2 ]
+      where
+       
+        k0 o = o @ (z @ y) where
+          y = (`i * 2) : [566]
+          z = S @ (`r : [566])
+
+        k1 o = o @ (z @ y) where
+          y = (`i * 2)+1 : [566]
+          z = S @ (`r : [566])
+
+        
+        a1 = a0 + b0 + (k0 m ^ k1 u)
+        d1 = (d0 ^ a1) >>> 16
+        c1 = c0 + d1
+        b1 = (b0 ^ c1) >>> 12
+        a2 = a1 + b1 + (k1 m ^ k0 u)
+        d2 = (d1 ^ a2) >>> 8
+        c2 = c1 + d2
+        b2 = (b1 ^ c2) >>> 7
+
+   
+    round : { r } (fin r, 13 >= r) => Block -> Block
+    round
+        [ x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15 ]
+      = [ z0, z1, z2, z3, z4, z5, z6, z7, z8, z9, z10, z11, z12, z13, z14, z15 ]
+      where
+       
+        [ y0, y4, y8,  y12 ] = G`{0,r} [ x0, x4, x8,  x12 ]
+        [ y1, y5, y9,  y13 ] = G`{1,r} [ x1, x5, x9,  x13 ]
+        [ y2, y6, y10, y14 ] = G`{2,r} [ x2, x6, x10, x14 ]
+        [ y3, y7, y11, y15 ] = G`{3,r} [ x3, x7, x11, x15 ]
+       
+        [ z0, z5, z10, z15 ] = G`{4,r} [ y0, y5, y10, y15 ]
+        [ z1, z6, z11, z12 ] = G`{5,r} [ y1, y6, y11, y12 ]
+        [ z2, z7, z8,  z13 ] = G`{6,r} [ y2, y7, y8,  y13 ]
+        [ z3, z4, z9,  z14 ] = G`{7,r} [ y3, y4, y9,  y14 ]
+
+   
+    final : Block
+    final = r13
+      where
+        r0  = round`{0} v
+        r1  = round`{1} r0
+        r2  = round`{2} r1
+        r3  = round`{3} r2
+        r4  = round`{4} r3
+        r5  = round`{5} r4
+        r6  = round`{6} r5
+        r7  = round`{7} r6
+        r8  = round`{8} r7
+        r9  = round`{9} r8
+        r10 = round`{10} r9
+        r11 = round`{11} r10
+        r12 = round`{12} r11
+        r13 = round`{13} r12
+
+    
+    f0 = h0 ^ s0 ^ (final @ 0) ^ (final @ 8)
+    f1 = h1 ^ s1 ^ (final @ 1) ^ (final @ 9)
+    f2 = h2 ^ s2 ^ (final @ 2) ^ (final @ 10)
+    f3 = h3 ^ s3 ^ (final @ 3) ^ (final @ 11)
+    f4 = h4 ^ s0 ^ (final @ 4) ^ (final @ 12)
+    f5 = h5 ^ s1 ^ (final @ 5) ^ (final @ 13)
+    f6 = h6 ^ s2 ^ (final @ 6) ^ (final @ 14)
+    f7 = h7 ^ s3 ^ (final @ 7) ^ (final @ 15)
+
+   
+    result : Alysida
+    result = [ f0, f1, f2, f3, f4, f5, f6, f7 ]
+
+
+pad : { b, f, e, p }
+    ( f == b/446     
+    , e == 512*(f+1) 
+    , p == e-(b+66)  
+
+    , fin b, fin e, fin p, 64 >= width b
+    ) => [b] -> ([e], [e/512][128])
+pad m = (result, lengths`{w=b,x=e})
+ 
+  where
+    
+    result : [e]
+    result = m # [True] # (zero : [p]) # [True] # (width m : [64])
+
+   
+    lengths : { w, x, y, z }
+            ( fin y, y == x/512
+            , fin z, z == w/512     
+
+            , fin w, fin x, y >= 1+z, y >= 1
+            ) => [y][128]
+    lengths = res
+      where
+       
+        ls  = take`{z} (iterate (\x -> x + 512) 512) : [z][128]
+
+       
+        end  = ls ! 0   : [128]
+
+        rem  = `b - end : [128]
+
+        last = if `y == (1:[width y]) then `b else end + rem
+
+       
+        res = ls # [last] # (zero : [y-z-1][128])
+
+
+blake256 : { n, b, f, p }
+         ( b == n*8       
+         , f == b/446     
+         , p == 512*(f+1) 
+         
+         , fin b, fin p, 64 >= width b
+         ) => Salt -> [n][8] -> Hash
+blake256 salt in = result
+  where
+   
+    (padded, lengths1) = pad (join in : [b]) : ([p], [p/512][128])
+
+   
+    lengths2 = map cut lengths1
+      where
+        cut : [128] -> Count
+        cut xs = half (split xs)
+
+        half : [4][32] -> Count
+        half [ c0, c1, c2, c3 ] = [ c3, c2 ]
+
+  
+    blocks = split padded        : [p/512][512]
+
+    
+    result : Hash
+    result = split (join r) 
+      where
+        
+        r = vs ! 0
+        
+        vs : [_]Alysida
+        vs = [iv] # [ compress v (split b) salt l 
+                    | v <- vs                     
+                    | b <- blocks                 
+                    | l <- lengths2               
+                    ]
+
+
+
+private
+  
+  map : { a, b, c }
+        (a -> b) -> [c]a -> [c]b
+  map f xs = [ f x | x <- xs ]
+
+ 
+  iterate : { a } (a -> a) -> a -> [inf]a
+  iterate f x = [x] # [ f v | v <- iterate f x ]
+    where
+ 
+      xs = [x] # [ f v | v <- xs ]
